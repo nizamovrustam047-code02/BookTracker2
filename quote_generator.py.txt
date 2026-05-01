@@ -1,0 +1,155 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import json
+import os
+import random
+from datetime import datetime
+
+class QuoteGenerator:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Генератор случайных цитат")
+        self.root.geometry("800x600")
+        
+        # Предопределённые цитаты
+        self.default_quotes = [
+            {"text": "Жизнь — это то, что с тобой происходит, пока ты строишь планы.", 
+             "author": "Джон Леннон", 
+             "topic": "Жизнь"},
+            {"text": "Единственный способ сделать великую работу — любить то, что делаешь.", 
+             "author": "Стив Джобс", 
+             "topic": "Работа"},
+            {"text": "Будь тем изменением, которое хочешь увидеть в мире.", 
+             "author": "Махатма Ганди", 
+             "topic": "Изменения"},
+            {"text": "Всё счастливые семьи похожи друг на друга, каждая несчастливая семья несчастлива по-своему.", 
+             "author": "Лев Толстой", 
+             "topic": "Семья"},
+            {"text": "Мы в ответе за тех, кого приручили.", 
+             "author": "Антуан де Сент-Экзюпери", 
+             "topic": "Ответственность"},
+            {"text": "Познай самого себя.", 
+             "author": "Сократ", 
+             "topic": "Философия"},
+            {"text": "Я мыслю, следовательно, существую.", 
+             "author": "Рене Декарт", 
+             "topic": "Философия"},
+            {"text": "Лучше поздно, чем никогда.", 
+             "author": "Ливий", 
+             "topic": "Время"}
+        ]
+        
+        # История цитат
+        self.history_file = "quotes_history.json"
+        self.history = self.load_history()
+        
+        # Текущие цитаты (предопределённые + пользовательские)
+        self.all_quotes = self.default_quotes.copy()
+        
+        # Создание интерфейса
+        self.create_widgets()
+        
+    def create_widgets(self):
+        # Основные фреймы
+        main_frame = ttk.Frame(self.root, padding="10")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Конфигурация веса строк и столбцов
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(1, weight=1)
+        
+        # Заголовок
+        title_label = ttk.Label(main_frame, text="Генератор случайных цитат", 
+                                font=("Arial", 16, "bold"))
+        title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
+        
+        # Кнопка генерации
+        generate_btn = ttk.Button(main_frame, text="Сгенерировать цитату", 
+                                  command=self.generate_quote)
+        generate_btn.grid(row=1, column=0, columnspan=3, pady=(0, 20))
+        
+        # Область отображения текущей цитаты
+        self.quote_frame = ttk.LabelFrame(main_frame, text="Текущая цитата", padding="10")
+        self.quote_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 20))
+        self.quote_frame.columnconfigure(0, weight=1)
+        
+        self.quote_text = tk.Text(self.quote_frame, height=4, width=60, wrap=tk.WORD, 
+                                 font=("Arial", 11))
+        self.quote_text.grid(row=0, column=0, sticky=(tk.W, tk.E))
+        self.quote_text.config(state=tk
+                self.quote_text.config(state=tk.DISABLED)
+        
+        # Автор и тема
+        author_frame = ttk.Frame(self.quote_frame)
+        author_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(5, 0))
+        
+        self.author_label = ttk.Label(author_frame, text="Автор: ", font=("Arial", 10, "italic"))
+        self.author_label.pack(side=tk.LEFT)
+        
+        self.topic_label = ttk.Label(author_frame, text="Тема: ", font=("Arial", 10))
+        self.topic_label.pack(side=tk.RIGHT)
+        
+        # Кнопки действий с текущей цитатой
+        btn_frame = ttk.Frame(self.quote_frame)
+        btn_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        
+        copy_btn = ttk.Button(btn_frame, text="Копировать", command=self.copy_quote)
+        copy_btn.pack(side=tk.LEFT, padx=(0, 10))
+        
+        save_btn = ttk.Button(btn_frame, text="Сохранить в историю", command=self.save_current_quote)
+        save_btn.pack(side=tk.LEFT)
+        
+        # Фрейм для управления цитатами
+        control_frame = ttk.LabelFrame(main_frame, text="Управление цитатами", padding="10")
+        control_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 20))
+        
+        # Кнопки управления
+        add_btn = ttk.Button(control_frame, text="Добавить новую цитату", 
+                            command=self.open_add_quote_window)
+        add_btn.grid(row=0, column=0, padx=(0, 10))
+        
+        view_btn = ttk.Button(control_frame, text="Просмотреть все цитаты", 
+                             command=self.open_view_quotes_window)
+        view_btn.grid(row=0, column=1, padx=(0, 10))
+        
+        history_btn = ttk.Button(control_frame, text="История", 
+                                command=self.open_history_window)
+        history_btn.grid(row=0, column=2)
+        
+        # Фрейм для фильтрации
+        filter_frame = ttk.LabelFrame(main_frame, text="Фильтр по теме", padding="10")
+        filter_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 20))
+        
+        # Получение всех уникальных тем
+        all_topics = list(set(quote["topic"] for quote in self.all_quotes))
+        all_topics.sort()
+        all_topics.insert(0, "Все темы")
+        
+        self.topic_var = tk.StringVar(value="Все темы")
+        topic_label = ttk.Label(filter_frame, text="Выберите тему:")
+        topic_label.grid(row=0, column=0, padx=(0, 10))
+        
+        self.topic_combo = ttk.Combobox(filter_frame, textvariable=self.topic_var, 
+                                       values=all_topics, state="readonly", width=20)
+        self.topic_combo.grid(row=0, column=1)
+        self.topic_combo.bind("<<ComboboxSelected>>", self.filter_by_topic)
+        
+        # Статус бар
+        self.status_bar = ttk.Label(main_frame, text="Готов к работе", relief=tk.SUNKEN)
+        self.status_bar.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(10, 0))
+        
+    def generate_quote(self):
+        """Генерация случайной цитаты"""
+        if not self.all_quotes:
+            messagebox.showwarning("Нет цитат", "Добавьте хотя бы одну цитату!")
+            return
+            
+        # Фильтрация по теме, если выбрана
+        selected_topic = self.topic_var.get()
+        if selected_topic and selected_topic != "Все темы":
+            filtered_quotes = [q for q in self.all_quotes if q["topic"] == selected_topic]
+            if not filtered_quotes:
+                messagebox.showinfo("Нет цитат", f"Нет цитат по теме '{selected_topic}'")
+                return
+           

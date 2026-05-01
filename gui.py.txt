@@ -1,0 +1,142 @@
+import tkinter as tk
+from tkinter import ttk, messagebox, scrolledtext
+from typing import Callable
+from quote_manager import QuoteManager
+
+class QuoteAppGUI:
+    """Графический интерфейс приложения Цитаты"""
+    
+    def __init__(self, root: tk.Tk, quote_manager: QuoteManager):
+        self.root = root
+        self.quote_manager = quote_manager
+        
+        self.setup_ui()
+        self.load_initial_data()
+        
+    def setup_ui(self):
+        """Настройка интерфейса"""
+        self.root.title("Менеджер цитат")
+        self.root.geometry("800x600")
+        
+        # Создание меню
+        self.create_menu()
+        
+        # Основной контейнер
+        main_frame = ttk.Frame(self.root, padding="10")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Настройка сетки
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(1, weight=1)
+        
+        # Левая панель (навигация)
+        left_frame = ttk.LabelFrame(main_frame, text="Навигация", padding="10")
+        left_frame.grid(row=0, column=0, sticky=(tk.N, tk.S), padx=(0, 10))
+        
+        # Кнопки навигации
+        ttk.Button(left_frame, text="Случайная цитата", 
+                  command=self.show_random_quote).pack(fill=tk.X, pady=5)
+        
+        ttk.Button(left_frame, text="Добавить цитату", 
+                  command=self.show_add_quote).pack(fill=tk.X, pady=5)
+        
+        ttk.Button(left_frame, text="История", 
+                  command=self.show_history).pack(fill=tk.X, pady=5)
+        
+        ttk.Button(left_frame, text="Поиск", 
+                  command=self.show_search).pack(fill=tk.X, pady=5)
+        
+        ttk.Button(left_frame, text="Все цитаты", 
+                  command=self.show_all_quotes).pack(fill=tk.X, pady=5)
+        
+        # Выбор темы
+        ttk.Label(left_frame, text="Выбор темы:").pack(anchor=tk.W, pady=(20, 5))
+        self.topic_var = tk.StringVar(value="Все темы")
+        self.topic_combo = ttk.Combobox(left_frame, textvariable=self.topic_var, state="readonly")
+        self.topic_combo.pack(fill=tk.X, pady=5)
+        self.topic_combo.bind('<<ComboboxSelected>>', self.on_topic_selected)
+        
+        # Правая панель (основной контент)
+        self.content_frame = ttk.Frame(main_frame)
+        self.content_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.content_frame.columnconfigure(0, weight=1)
+        self.content_frame.rowconfigure(0, weight=1)
+        
+        # Статус бар
+        self.status_var = tk.StringVar(value="Готово")
+        status_bar = ttk.Label(self.root, textvariable=self.status_var, relief=tk.SUNKEN)
+        status_bar.grid(row=1, column=0, sticky=(tk.W, tk.E), padx=10, pady=(0, 10))
+    
+    def create_menu(self):
+        """Создание меню приложения"""
+        menubar = tk.Menu(self.root)
+        self.root.config(menu=menubar)
+        
+        # Меню Файл
+        file_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Файл", menu=file_menu)
+        file_menu.add_command(label="Экспорт цитат", command=self.export_quotes)
+        file_menu.add_separator()
+        file_menu.add_command(label="Выход", command=self.root.quit)
+        
+        # Меню Инструменты
+        tools_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Инструменты", menu=tools_menu)
+        tools_menu.add_command(label="Статистика", command=self.show_statistics)
+        tools_menu.add_command(label="Очистить историю", command=self.clear_history)
+    
+    def load_initial_data(self):
+        """Загрузка начальных данных"""
+        # Загрузка тем в комбобокс
+        topics = ["Все темы"] + self.quote_manager.get_all_topics()
+        self.topic_combo['values'] = topics
+        
+        # Показать случайную цитату при запуске
+        self.show_random_quote()
+    
+    def clear_content_frame(self):
+        """Очистка основного фрейма"""
+        for widget in self.content_frame.winfo_children():
+            widget.destroy()
+    
+    def show_random_quote(self):
+        """Показать случайную цитату"""
+        self.clear_content_frame()
+        
+        quote = self.quote_manager.get_random_quote()
+        if not quote:
+            ttk.Label(self.content_frame, text="Нет доступных цитат").pack(pady=20)
+            return
+        
+        # Запись в историю
+        self.quote_manager.add_to_history(quote["id"])
+        
+        # Отображение цитаты
+        quote_frame = ttk.Frame(self.content_frame, padding="20")
+        quote_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        quote_frame.columnconfigure(0, weight=1)
+        
+        # Текст цитаты
+        text_frame = ttk.Frame(quote_frame)
+        text_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 20))
+        text_frame.columnconfigure(0, weight=1)
+        
+        quote_text = scrolledtext.ScrolledText(text_frame, wrap=tk.WORD, 
+                                               height=8, font=("Arial", 12))
+        quote_text.insert(tk.END, f'"{quote["text"]}"')
+        quote_text.configure(state='disabled')
+        quote_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Автор
+        author_label = ttk.Label(quote_frame, text=f"— {quote['author']}", 
+                                 font=("Arial", 11, "italic"))
+        author_label.grid(row=1, column=0, sticky=tk.E, pady=(0, 10))
+        
+        # Тема
+        topic_label = ttk.Label(quote_frame, text=f"Тема: {quote['topic']}")
+        topic_label.grid(row=2, column=0, sticky=tk.W)
+        
+        # ID цитаты
+        id_label = ttk.Label(quote_frame, text=f"ID: {quote['id']}")
+        id_label.grid(row=2, column=0
