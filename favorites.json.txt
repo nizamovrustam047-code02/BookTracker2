@@ -1,0 +1,20 @@
+[
+  {
+    "login": "octocat",
+    "name": "The Octocat",
+    "company": "GitHub",
+    "location": "San Francisco",
+    "public_repos": 8,
+    "followers": 3939,
+    "added_date": "2024-01-15 14:30:00"
+  },
+  {
+    "login": "torvalds",
+    "name": "Linus Torvalds",
+    "company": "Linux Foundation",
+    "location": "Portland, OR",
+    "public_repos": 7,
+    "followers": 185000,
+    "added_date": "2024-01-15 15:45:00"
+  }
+]
